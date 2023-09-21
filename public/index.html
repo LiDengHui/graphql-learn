@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+
+</body>
+<script>
+    let author = 'andy';
+    let content = "hop is a good thing"
+    let query = `mutation CreateMessage($input:MessageInput) {
+        createMessage(input:$input) {
+            id,
+            author,
+            content
+        }
+    }`
+
+    fetch('/graphql', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            "Accept": "application/json"
+        },
+        body: JSON.stringify({
+            query,
+            variables: {
+                input: {
+                    author,
+                    content
+                }
+            }
+        })
+    }).then(res=> res.json())
+    .then(data=>console.log('data returned:', data))
+</script>
+</html>
