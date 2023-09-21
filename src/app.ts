@@ -1,33 +1,13 @@
 import express from "express";
-import {buildSchema} from "graphql";
+import {buildSchema, GraphQLInputObjectType, GraphQLObjectType, GraphQLSchema, GraphQLString} from "graphql";
 import {graphqlHTTP} from "express-graphql";
 
 // 使用 GraphQL Schema Language 创建一个 schema
-const schema = buildSchema(`
-  input MessageInput {
-   content: String
-   author: String
-  }
-  
-  type Message {
-    id: ID!
-    content: String
-    author: String
-  }
-  
-  type Query {
-    getMessage(id: ID!): Message
-  }
-  
-  type Mutation {
-    createMessage(input: MessageInput): Message
-    updateMessage(id: ID!, input: MessageInput): Message
-  }
-`)
 interface MessageInput {
   content: string
   author: string
 }
+
 class Message {
   id: string
   content: string
@@ -39,42 +19,90 @@ class Message {
     this.author = author;
   }
 }
+
 const fakeDatabase: Record<string, MessageInput> = {};
-// root 提供所有 API 入口端点相应的解析器函数
-const root = {
-  getMessage: ({id}: {id: string}) => {
-    if(!id) throw new Error(`id is must`)
 
-    if(!fakeDatabase[id]) {
-      throw new Error('no message exists width id'+ id);
-    }
 
-    return new Message(id, fakeDatabase[id]);
-  },
-  createMessage: ({input}: { input:MessageInput }) => {
-    let id = crypto.randomUUID();
-    fakeDatabase[id] = input;
-    console.log(input)
-    return new Message(id, input);
-  },
 
-  updateMessage:({id, input}: {id: string, input:MessageInput}) => {
-    if(!fakeDatabase[id]) {
-      throw new Error('no message exists width id'+ id);
-    }
-
-    fakeDatabase[id] = input;
-    return new Message(id, input)
+const MessageType = new GraphQLObjectType({
+  name: "Message",
+  fields: {
+    id: {type: GraphQLString},
+    content: {type: GraphQLString},
+    author: {type: GraphQLString}
   }
-}
+})
 
+const MessageInputType = new GraphQLInputObjectType({
+  name: "MessageInput",
+  fields: {
+    content: {type: GraphQLString},
+    author: {type: GraphQLString}
+  }
+})
 
+const QueryType = new GraphQLObjectType({
+  name: "Query",
+  fields: {
+    getMessage: {
+      type: MessageType,
+      args: {
+        id: {
+          type: GraphQLString
+        }
+      },
+      resolve: (_, {id}: { id: string }) => {
+        if (!id) throw new Error(`id is must`)
+
+        if (!fakeDatabase[id]) {
+          throw new Error('no message exists width id' + id);
+        }
+
+        return new Message(id, fakeDatabase[id]);
+      }
+    }
+  }
+})
+
+const MutationsType = new GraphQLObjectType({
+  name: "Mutations",
+  fields: {
+    createMessage: {
+      type: MessageType,
+      args: {
+        input: {type: MessageInputType}
+      },
+      resolve: (_, {input}: { id: string, input: MessageInput }) => {
+        let id = crypto.randomUUID();
+        fakeDatabase[id] = input;
+        console.log(input)
+        return new Message(id, input);
+      }
+    },
+    updateMessage: {
+      type: MessageType,
+      args: {
+        id: {type: GraphQLString},
+        input: {type: MessageInputType}
+      },
+      resolve: (_, {id, input}: { id: string, input: MessageInput }) => {
+        if (!fakeDatabase[id]) {
+          throw new Error('no message exists width id' + id);
+        }
+
+        fakeDatabase[id] = input;
+        return new Message(id, input)
+      }
+    }
+
+  }
+})
 const app = express();
+const schema = new GraphQLSchema({ query: QueryType,mutation: MutationsType  })
 
 app.use(express.static('public'))
 app.use(`/graphql`, graphqlHTTP({
   schema,
-  rootValue: root,
   graphiql: true
 }))
 
